@@ -26,6 +26,7 @@ class CustomPwBandStructureWorkChain(WorkChain):
         spec.input('structure', valid_type=StructureData)
         spec.input('pseudo_family', valid_type=Str)
         spec.input('protocol', valid_type=Str, default=Str('standard'))
+        spec.input('settings',valid_type=ParameterData)
         spec.outline(
             cls.setup_protocol,
             cls.setup_kpoints,
@@ -49,7 +50,7 @@ class CustomPwBandStructureWorkChain(WorkChain):
             'structure': self.inputs.structure,
             'pseudo_family': self.inputs.pseudo_family,
             'parameters': {},
-            'settings': {},
+            'settings':self.inputs.settings.get_dict(),
             'options': {
                 'resources': {
                     'num_machines': 1

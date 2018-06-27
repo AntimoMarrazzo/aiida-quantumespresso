@@ -11,7 +11,7 @@ from aiida.orm.group import Group
 from aiida.orm.utils import WorkflowFactory
 from aiida.work.run import submit
 from aiida.work.workchain import WorkChain, ToContext, if_
-from aiida.work.workfunction import workfunction
+from aiida.work import workfunction
 from aiida_quantumespresso.utils.mapping import prepare_process_inputs
 
 
