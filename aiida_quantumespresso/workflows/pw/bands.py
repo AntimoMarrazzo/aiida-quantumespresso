@@ -39,6 +39,9 @@ class PwBandsWorkChain(WorkChain):
         spec.input('options', valid_type=ParameterData, required=False)
         spec.input('skip_relax', valid_type=Bool, default=Bool(False))
         spec.input('automatic_parallelization', valid_type=ParameterData, required=False)
+        # Use workchain_options to control the wc behaviour, see the setup step for 
+        # a list of valid keywords.
+        spec.input('workchain_options',  valid_type=ParameterData, required=False)
         spec.input('group', valid_type=Str, required=False)
         spec.input_group('relax')
         spec.outline(
@@ -90,8 +93,26 @@ class PwBandsWorkChain(WorkChain):
         if 'automatic_parallelization' in self.inputs:
             self.ctx.inputs['automatic_parallelization'] = self.inputs.automatic_parallelization
 
+        if 'workchain_options' in self.inputs:
+            wc_options = self.inputs['workchain_options'].get_dict()
+        else:
+            wc_options = {}
+       
+        # Setting number of bands for the band structure calculations
+        # defined as a multiplicative factore wrt to the number of occupied states
+        # e.g. 1.2 means 20% more or at least 4 more as in QE
+        try:
+            self.ctx.num_bands_factor = wc_options.pop('num_bands_factor')
+        except KeyError:
+            self.ctx.num_bands_factor = 1.2    # 20% more than num occupied states, as in QE
+       
+        if wc_options:
+            #Checking that all options given in input are recognised
+            self.abort_nowait('Unknown variable passed inside workchain_options: {}'.format(
+                              ', '.join(wc_options.keys())
+                              ))
         return
-
+       
     def validate_inputs(self):
         """
         Validate inputs that may depend on each other
@@ -198,11 +219,20 @@ class PwBandsWorkChain(WorkChain):
         structure = self.ctx.structure_relaxed_primitive
         restart_mode = 'restart'
         calculation_mode = 'bands'
-
+       
+        scf_out_dict = self.ctx.workchain_scf.out.output_parameters.get_dict()
+        num_elec = int(scf_out_dict['number_of_electrons'])        
+        num_spin = int(scf_out_dict['number_of_spin_components'])
         # Set the correct pw.x input parameters
         inputs['parameters']['CONTROL']['restart_mode'] = restart_mode
         inputs['parameters']['CONTROL']['calculation'] = calculation_mode
-
+        # This gives the same results also with noncollinear calcs
+        # e.g. with 8 electrons, no spinors and a factor of 1.5 you compute 6 bands
+        #      with spinors you compute 12 bands (still 50% more than the occupied states)
+        # As in QE, we add at least 4 (8 with spinors) additional bands 
+        inputs['parameters']['SYSTEM']['nbnd'] = max(int(0.5 * num_elec * num_spin * self.ctx.num_bands_factor),
+                                                     int(num_elec * num_spin * 0.5) + 4*num_spin)
+        
         # Tell the plugin to retrieve the bands
         settings = inputs['settings'].get_dict()
 
