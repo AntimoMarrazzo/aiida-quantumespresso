@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from copy import deepcopy
 from aiida.common.links import LinkType
 from aiida.orm import Code
 from aiida.orm.data.base import Bool, Float, Int, Str 
@@ -16,9 +15,12 @@ from aiida.common.exceptions import AiidaException, NotExistent
 from aiida.common.datastructures import calc_states
 from aiida.work.run import submit
 from aiida.work.workchain import WorkChain, ToContext, if_, while_, append_
+from aiida_quantumespresso.utils.mapping import prepare_process_inputs
+
 
 PwCalculation = CalculationFactory('quantumespresso.pw')
 PwBaseWorkChain = WorkflowFactory('quantumespresso.pw.base')
+
 
 class PwRelaxWorkChain(WorkChain):
     """
@@ -114,7 +116,7 @@ class PwRelaxWorkChain(WorkChain):
         if 'automatic_parallelization' in self.inputs:
             self.ctx.inputs.automatic_parallelization = self.inputs.automatic_parallelization
 
-        self.ctx.inputs.parameters['CONTROL']['calculation'] = self.inputs.relaxation_scheme
+        self.ctx.inputs.parameters['CONTROL']['calculation'] = self.inputs.relaxation_scheme.value
 
         return
 
@@ -148,9 +150,8 @@ class PwRelaxWorkChain(WorkChain):
         """
         self.ctx.iteration += 1
 
-        inputs = deepcopy(self.ctx.inputs)
+        inputs = self.ctx.inputs
         inputs['structure'] = self.ctx.current_structure
-        inputs['parameters'] = ParameterData(dict=inputs['parameters'])
 
         # Construct a new kpoint mesh on the current structure or pass the static mesh
         if 'kpoints' not in self.inputs or self.inputs.kpoints == None:
@@ -164,6 +165,7 @@ class PwRelaxWorkChain(WorkChain):
         else:
             inputs['kpoints'] = self.inputs.kpoints
 
+        inputs = prepare_process_inputs(inputs)
         running = submit(PwBaseWorkChain, **inputs)
 
         self.report('launching PwBaseWorkChain<{}>'.format(running.pid))
@@ -226,12 +228,11 @@ class PwRelaxWorkChain(WorkChain):
         """
         Run the PwBaseWorkChain to run a final scf PwCalculation for the relaxed structure
         """
-        inputs = deepcopy(self.ctx.inputs)
+        inputs = self.ctx.inputs
         structure = self.ctx.current_structure
 
-        parameters = inputs['parameters']
-        parameters['CONTROL']['calculation'] = 'scf'
-        parameters['CONTROL']['restart_mode'] = 'restart'
+        inputs.parameters['CONTROL']['calculation'] = 'scf'
+        inputs.parameters['CONTROL']['restart_mode'] = 'restart'
 
         # Construct a new kpoint mesh on the current structure or pass the static mesh
         if 'kpoints' not in self.inputs or self.inputs.kpoints == None:
@@ -247,10 +248,10 @@ class PwRelaxWorkChain(WorkChain):
         inputs.update({
             'kpoints': kpoints,
             'structure': structure,
-            'parameters': ParameterData(dict=parameters),
             'parent_folder': self.ctx.current_parent_folder,
         })
 
+        inputs = prepare_process_inputs(inputs)
         running = submit(PwBaseWorkChain, **inputs)
 
         self.report('launching PwBaseWorkChain<{}> for final scf'.format(running.pid))
@@ -275,13 +276,16 @@ class PwRelaxWorkChain(WorkChain):
             structure = workchain.out.output_structure
 
         if 'group' in self.inputs:
-            # Retrieve the final successful calculation through its output_parameters
-            # This will need a cleaner way eventually, this is just plain confusing
-            calculation = workchain.out.output_parameters.inp.output_parameters
-            group, _ = Group.get_or_create(name=self.inputs.group.value)
-            group.add_nodes(calculation)
-            self.report("storing the final PwCalculation<{}> in the group '{}'"
-                .format(calculation.pk, self.inputs.group.value))
+            # Retrieve the final successful PwCalculation through the output_parameters of the PwBaseWorkChain
+            try:
+                calculation = workchain.out.output_parameters.get_inputs(node_type=PwCalculation)[0]
+            except (AttributeError, IndexError) as exception:
+                self.report('could not retrieve the last run PwCalculation to add to the result group')
+            else:
+                group, _ = Group.get_or_create(name=self.inputs.group.value)
+                group.add_nodes(calculation)
+                self.report("storing the final PwCalculation<{}> in the group '{}'"
+                    .format(calculation.pk, self.inputs.group.value))
 
         # Store the structure separately since the PwBaseWorkChain of final scf will not have it as an output
         self.out('output_structure', structure)
