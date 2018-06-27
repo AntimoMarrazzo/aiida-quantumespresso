@@ -118,7 +118,6 @@ class PwBandsWorkChain(WorkChain):
                               ', '.join(wc_options.keys())
                               ))
         return
-<<<<<<< HEAD
        
     def validate_inputs(self):
         """
@@ -127,8 +126,6 @@ class PwBandsWorkChain(WorkChain):
         if not any([key in self.inputs for key in ['options', 'automatic_parallelization']]):
             self.abort_nowait('you have to specify either the options or automatic_parallelization input')
             return
-=======
->>>>>>> 4ada8f8e16e010ee335685e5d238b7d9575e11ba
 
     def should_do_relax(self):
         """
