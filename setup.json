@@ -52,18 +52,22 @@
             "quantumespresso.pw.base = aiida_quantumespresso.workflows.pw.base:PwBaseWorkChain", 
             "quantumespresso.pw.relax = aiida_quantumespresso.workflows.pw.relax:PwRelaxWorkChain", 
             "quantumespresso.pw.bands = aiida_quantumespresso.workflows.pw.bands:PwBandsWorkChain", 
-            "quantumespresso.pw.band_structure = aiida_quantumespresso.workflows.pw.band_structure:PwBandStructureWorkChain"
+            "quantumespresso.pw.band_structure = aiida_quantumespresso.workflows.pw.band_structure:PwBandStructureWorkChain", 
+            "quantumespresso.q2r.base = aiida_quantumespresso.workflows.q2r.base:Q2rBaseWorkChain", 
+            "quantumespresso.matdyn.base = aiida_quantumespresso.workflows.matdyn.base:MatdynBaseWorkChain"
         ], 
-        "aiida_quantumespresso.workflows.error_handlers": [
-            "pw.base = aiida_quantumespresso.workflows.pw.base:get_error_handlers"
+        "console_scripts": [
+            "launch_calculation_pw = aiida_quantumespresso.cli.calculations.pw.base:launch", 
+            "launch_workflow_pw_band_structure = aiida_quantumespresso.cli.workflows.pw.band_structure:launch", 
+            "launch_workflow_pw_bands = aiida_quantumespresso.cli.workflows.pw.bands:launch", 
+            "launch_workflow_pw_relax = aiida_quantumespresso.cli.workflows.pw.relax:launch", 
+            "launch_workflow_pw_base = aiida_quantumespresso.cli.workflows.pw.base:launch", 
+            "launch_workflow_ph_base = aiida_quantumespresso.cli.workflows.ph.base:launch", 
+            "launch_workflow_q2r_base = aiida_quantumespresso.cli.workflows.q2r.base:launch", 
+            "launch_workflow_matdyn_base = aiida_quantumespresso.cli.workflows.matdyn.base:launch"
         ]
     }, 
     "extras_require": {
-        "atomic_tools": [
-            "ase", 
-            "PyCifRW==3.6.2.1", 
-            "spglib"
-        ], 
         "dev_precommit": [
             "pre-commit"
         ], 
@@ -74,10 +78,11 @@
         ]
     }, 
     "install_requires": [
-        "aiida_core>=0.10.0rc3"
+        "aiida_core>=0.12.0[atomic_tools]", 
+        "click"
     ], 
     "license": "MIT License", 
     "name": "aiida_quantumespresso", 
     "url": "https://github.com/aiidateam/aiida-quantumespresso", 
-    "version": "1.0.1"
+    "version": "2.0.1"
 }
